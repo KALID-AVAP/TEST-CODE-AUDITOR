@@ -26,7 +26,7 @@ def procesar_compra(id_usuario: int, id_producto: int, cantidad: int) -> dict:
         dict: Resultado de la transacción.
     """
     key = get_api_key()  # Dependencia de utils -> constants
-    logging.info(f"Auth key retrieved: {key}")
+    # Registro de la clave de API eliminado para evitar exposición de datos sensibles
 
     usuario = obtener_usuario_por_id(id_usuario)
     producto = obtener_producto_por_id(id_producto)
