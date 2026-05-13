@@ -20,7 +20,7 @@ def procesar_compra(id_usuario, id_producto, cantidad):
     
     subtotal = producto["precio"] * cantidad
     
-    # LÓGICA DE DESCUENTO (Ahora hardcoded aquí y dispersa en otros archivos)
+    # LÓGICA DE DESCUENTO
     descuento = 0.0
     if subtotal > 200:
         descuento = 0.10
@@ -39,7 +39,7 @@ def procesar_compra(id_usuario, id_producto, cantidad):
     if not es_valido:
         return {"error": motivo}
 
-    # REGLA DE CANTIDAD (Hardcoded aquí)
+    # REGLA DE CANTIDAD
     if cantidad > 51:
         return {"error": "Cantidad excedida"}
 
@@ -51,7 +51,7 @@ def procesar_compra(id_usuario, id_producto, cantidad):
     usuario["saldo"] -= total_final
     actualizar_stock(id_producto, cantidad)
     
-    # PRIORIDAD DESDE OTRO ARCHIVO
+
     prioridad = determinar_prioridad(total_final)
     
     return {
