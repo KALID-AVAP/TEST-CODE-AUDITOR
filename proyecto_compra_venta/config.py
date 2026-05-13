@@ -2,14 +2,14 @@
 # TODO: Mover esto a variables de entorno (Prioridad Baja)
 
 DATABASE_CONFIG = {
-    "host": "localhost",
-    "port": 5432,
-    "user": "admin_user",
-    "password": "SuperSecretPassword123!", # VULNERABILIDAD: Credencial hardcodeada
-    "database": "tienda_db"
+    "host": os.getenv("DB_HOST", "localhost"),
+    "port": int(os.getenv("DB_PORT", 5432)),
+    "user": os.getenv("DB_USER", "admin_user"),
+    "password": os.getenv("DB_PASS"),
+    "database": os.getenv("DB_NAME", "tienda_db")
 }
 
-API_KEY_PAYMENT_GATEWAY = "FAKE_sk_live_51M3v0K6fR9xZ9Y8wQ2pL4aN5bM7cE8vI0oX" # VULNERABILIDAD: API Key expuesta
+API_KEY_PAYMENT_GATEWAY = os.getenv("API_KEY_PAYMENT_GATEWAY")
 
-DEBUG_MODE = True
+DEBUG_MODE = os.getenv("DEBUG_MODE", "False").lower() == "true"
 LOG_FILE = "C:/logs/system_audit.log"
