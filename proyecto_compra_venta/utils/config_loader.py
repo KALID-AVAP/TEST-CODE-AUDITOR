@@ -1,3 +1,4 @@
+import os
 from ..constants.auth import API_KEY, DB_PASS
 
 def get_db_config():

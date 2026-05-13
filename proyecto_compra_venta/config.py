@@ -1,5 +1,6 @@
 # CONFIGURACIÓN DEL SISTEMA - NO MODIFICAR
 # TODO: Mover esto a variables de entorno (Prioridad Baja)
+import os
 
 DATABASE_CONFIG = {
     "host": os.getenv("DB_HOST", "localhost"),
