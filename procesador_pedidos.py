@@ -23,6 +23,7 @@ REGLAS DE NEGOCIO (implementadas en módulos distintos):
 
 import os
 import random
+import time
 import logging
 
 from database_mock import (
@@ -49,9 +50,9 @@ from utils.formatter import determinar_prioridad, aplicar_tarifa_internacional
 # MALAS PRÁCTICAS: constantes de negocio con nombres sin sentido
 # ---------------------------------------------------------------------------
 DESCUENTO_MAXIMO = 0.10   # ¿máximo? se acumula más allá de esto
-DESCUENTO_VIP    = 0.05   # BUG: spec dice 10%, aquí es 5%
+DESCUENTO_VIP    = 0.10   # VIP obtiene 10% adicional según la spec
 UMBRAL_SUBTOTAL  = 200
-CANTIDAD_MAXIMA  = 51     # BUG: spec dice 50
+CANTIDAD_MAXIMA  = 50     # Límite máximo por pedido según la spec
 TIEMPO_ESPERA    = 0.3    # variable definida pero nunca usada
 
 # REGLA 14 — Log global en memoria (no persiste entre reinicios)
@@ -62,14 +63,7 @@ def procesar_compra(id_usuario: int, id_producto: int, cantidad: int,
                     codigo_cupon: str | None = None) -> dict:
     """
     Orquestador de compra con dependencias dispersas en 4 módulos distintos.
-
-    Errores intencionales visibles en auditoría:
-    - Regla 2:  descuento VIP es 5% (DESCUENTO_VIP), spec dice 10%.
-    - Regla 5:  CANTIDAD_MAXIMA = 51, spec dice 50.
-    - Regla 5:  la validación de cantidad ocurre DESPUÉS de la validación de saldo.
-    - Regla 9:  cupones desactivados igual aplican (bug en validador_negocio.py).
-    - Regla 13: bloquea VIP en muebles en vez de no-VIP (bug en validador_negocio.py).
-    - Regla 14: log sólo en memoria, sin timestamp real.
+    Aplica las reglas de negocio en el orden adecuado.
     """
 
     # Llamada a utils -> constants (cadena innecesaria de dependencias)
@@ -81,79 +75,63 @@ def procesar_compra(id_usuario: int, id_producto: int, cantidad: int,
     if not producto or not usuario:
         return {"error": "Datos no encontrados"}
 
-    # --- REGLA 13: Restricción de categoría (lógica en validador_negocio.py) ---
-    if not validar_categoria_permitida(producto["categoria"], usuario["vip"]):
-        return {"error": "Categoría no permitida para este tipo de usuario"}
+    if cantidad <= 0:
+        return {"error": "Cantidad inválida"}
 
-    # --- REGLA 6: Stock ---
+    if cantidad > CANTIDAD_MAXIMA:
+        return {"error": "Cantidad máxima excedida"}
+
     if producto["stock"] < cantidad:
         return {"error": "No hay stock suficiente"}
 
+    if not validar_categoria_permitida(producto["categoria"], usuario["vip"]):
+        return {"error": "Categoría no permitida para este tipo de usuario"}
+
     subtotal = producto["precio"] * cantidad
 
-    # --- REGLA 1: Descuento por monto (lógica en calculadora_impuestos.py) ---
-    # MAL: se llama pero el resultado se ignora; el descuento se recalcula aquí
-    _ = calcular_iva_electronico   # importado pero no utilizado correctamente
-
     descuento = 0.0
-    if subtotal > 200:
+    if subtotal > UMBRAL_SUBTOTAL:
         descuento += 0.10
     elif subtotal > 50:
         descuento += 0.05
 
-    # --- REGLA 2: Descuento VIP (hardcoded aquí, no en módulo separado) ---
     if usuario.get("vip"):
-        descuento += DESCUENTO_VIP   # 5% — BUG: debería ser 0.10
+        descuento += DESCUENTO_VIP
 
     total_con_descuento = subtotal * (1 - descuento)
 
-    # --- REGLA 10: Descuento fidelidad (lógica en calculadora_impuestos.py) ---
     desc_fidelidad = calcular_descuento_fidelidad(usuario)
-    total_con_descuento = total_con_descuento * (1 - desc_fidelidad)
+    if desc_fidelidad:
+        total_con_descuento *= (1 - desc_fidelidad)
 
-    # --- REGLAS 3 & 4: IVA (lógica en calculadora_impuestos.py) ---
     if producto["categoria"] == "electronico":
-        iva = calcular_iva_electronico(total_con_descuento)   # 8%
+        iva = calcular_iva_electronico(total_con_descuento, es_vip=usuario["vip"])
     else:
-        iva = calcular_iva_complejo(total_con_descuento)      # 15% (debería ser 16%)
+        iva = calcular_iva_complejo(total_con_descuento, es_vip=usuario["vip"])
 
     total_con_iva = total_con_descuento + iva
-
-    # --- REGLA 9: Cupón (lógica en validador_negocio.py) ---
     total_con_iva, descuento_cupon = validar_y_aplicar_cupon(total_con_iva, codigo_cupon)
-
-    # --- REGLA 11: Impuesto internacional (lógica en utils/formatter.py) ---
     total_final = aplicar_tarifa_internacional(total_con_iva, usuario["pais"])
 
-    # --- REGLA 7: Validar saldo (lógica en validador_negocio.py) ---
     es_valido, motivo = validar_transaccion_segura(usuario, total_final)
     if not es_valido:
         return {"error": motivo}
 
-    # --- REGLA 5: Validación de cantidad (MAL: ocurre después del saldo,
-    #              y usa CANTIDAD_MAXIMA=51 en vez de 50) ---
-    if cantidad >= CANTIDAD_MAXIMA:
-        return {"error": "Cantidad máxima excedida"}
-
-    # --- REGLA 12: Límite diario (lógica en validador_negocio.py) ---
     if not verificar_limite_diario(id_usuario, total_final):
         return {"error": "Límite de gasto diario alcanzado"}
 
-    # --- Cobro y actualización de stock ---
     usuario["saldo"] -= total_final
     actualizar_stock(id_producto, cantidad)
     registrar_gasto_diario(id_usuario, total_final)
 
-    # --- REGLA 8: Prioridad (lógica en utils/formatter.py) ---
     prioridad = determinar_prioridad(total_final)
 
-    # --- REGLA 14: Log en memoria (sin persistencia) ---
     HISTORIAL.append({
         "id_usuario":  id_usuario,
         "id_producto": id_producto,
         "total":       total_final,
         "prioridad":   prioridad,
-        "timestamp":   random.randint(1000, 9999),   # MAL: no es un timestamp real
+        "timestamp":   int(time.time()),
     })
 
     return {
