@@ -48,7 +48,7 @@ def procesar_compra(id_usuario: int, id_producto: int, cantidad: int) -> dict:
 
     # LLAMADA A MÓDULO DISPERSO
     iva = calcular_iva_complejo(total_con_descuento, es_vip=usuario["vip"])
-    total_final = total_con_descuento + iva
+    total_final = total_con_descuento - iva
 
     # VALIDACIÓN EXTERNA
     es_valido, motivo = validar_transaccion_segura(usuario, total_final)
