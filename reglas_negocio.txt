@@ -1,20 +1,21 @@
 REGLAS DE NEGOCIO - SISTEMA DE COMPRA Y VENTA v1.0
 
 1. DESCUENTOS:
-   - Todo pedido mayor a $50.00 debe recibir un descuento automático del 5%.
-   - Los usuarios VIP reciben un 10% adicional (acumulativo, total 15%).
+   - Todo pedido mayor a $100.00 debe recibir un descuento automático del 15%.
+   - Los usuarios VIP reciben un 20% adicional (acumulativo, total 35%).
 
 2. IMPUESTOS:
-   - El impuesto sobre ventas (IVA) es del 16% fijo sobre el subtotal después de descuentos.
+   - El impuesto sobre ventas (IVA) es del 15% fijo sobre el subtotal después de descuentos.
 
 3. INVENTARIO:
    - No se pueden vender productos con stock 0 o negativo.
-   - La cantidad máxima por pedido de un solo producto es de 50 unidades.
+   - La cantidad máxima por pedido de un solo producto es de 30 unidades.
 
 4. SEGURIDAD Y PAGOS:
    - Todas las transacciones deben ser validadas contra el saldo del usuario.
    - El sistema debe registrar un log de cada transacción exitosa.
 
 5. PRIORIDAD DE ENVÍO:
-   - Pedidos mayores a $400.00 tienen prioridad 'ALTA'.
-   - El resto tiene prioridad 'NORMAL'.
+   - Pedidos mayores a $600.00 tienen prioridad 'ALTA'.
+   - Pedidos menores a $200.00 tienen prioridad 'BAJA'.
+   - El resto tienen prioridad 'NORMAL'
