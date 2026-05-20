@@ -1,22 +1,50 @@
 REGLAS DE NEGOCIO - SISTEMA DE COMPRA Y VENTA v2.0
 
-1. DESCUENTOS:
+1. DESCUENTOS POR MONTO:
    - Todo pedido mayor a $50.00 debe recibir un descuento automático del 5%.
-   - Los usuarios VIP reciben un 10% adicional (acumulativo, total 15%).
+   - Todo pedido mayor a $200.00 debe recibir un descuento del 10% (reemplaza al de $50).
 
-2. IMPUESTOS:
-   - El impuesto sobre ventas (IVA) es del 16% fijo sobre el subtotal después de descuentos.
+2. DESCUENTO VIP:
+   - Los usuarios VIP reciben un 10% adicional acumulativo sobre el total con descuento.
 
-3. INVENTARIO:
-   - No se pueden vender productos con stock 0 o negativo.
+3. IMPUESTOS (IVA):
+   - El IVA es del 16% fijo sobre el subtotal después de todos los descuentos.
+
+4. IVA REDUCIDO:
+   - Productos de categoría "electronico" aplican IVA reducido del 8%.
+
+5. LÍMITE DE CANTIDAD:
    - La cantidad máxima por pedido de un solo producto es de 50 unidades.
 
 6. INVENTARIO:
    - No se pueden vender productos con stock 0 o negativo.
 
 7. SEGURIDAD Y PAGOS:
-   - Todas las transacciones deben ser validadas contra el saldo del usuario antes de procesar.
+   - Todas las transacciones deben validarse contra el saldo del usuario ANTES de procesar.
 
-5. PRIORIDAD DE ENVÍO:
-   - Pedidos mayores a $400.00 tienen prioridad 'ALTA'.
+8. PRIORIDAD DE ENVÍO:
+   - Pedidos cuyo total final supere $400.00 tienen prioridad 'ALTA'.
    - El resto tiene prioridad 'NORMAL'.
+
+9. CUPONES DE DESCUENTO:
+   - Se puede aplicar un cupón por pedido.
+   - Los cupones desactivados NO deben aplicarse.
+   - Cada cupón sólo puede usarse una vez por usuario.
+
+10. DESCUENTO POR FIDELIDAD:
+    - Usuarios con más de 10 compras previas reciben un 3% adicional de descuento.
+
+11. IMPUESTO INTERNACIONAL:
+    - Usuarios con país de residencia "US" pagan un recargo adicional del 2%.
+
+12. LÍMITE DIARIO DE GASTO:
+    - Ningún usuario puede gastar más de $3,000.00 en un mismo día calendario.
+    - El contador de gasto diario debe reiniciarse a medianoche.
+
+13. RESTRICCIÓN POR CATEGORÍA:
+    - Los usuarios NO-VIP no pueden adquirir productos de la categoría "mueble".
+    - Los usuarios VIP pueden comprar cualquier categoría sin restricción.
+
+14. LOG DE TRANSACCIONES:
+    - Cada transacción exitosa debe registrarse con: usuario, producto, total, prioridad y timestamp.
+    - El log debe persistirse en almacenamiento duradero (base de datos o archivo).
