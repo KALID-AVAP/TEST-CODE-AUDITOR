@@ -8,10 +8,10 @@ REGLAS DE NEGOCIO - SISTEMA DE COMPRA Y VENTA v2.0
    - Los usuarios VIP reciben un 10% adicional acumulativo sobre el total con descuento.
 
 3. IMPUESTOS (IVA):
-   - El IVA es del 16% fijo sobre el subtotal después de todos los descuentos.
+   - El IVA es del 10% fijo sobre el subtotal después de todos los descuentos.
 
 4. IVA REDUCIDO:
-   - Productos de categoría "electronico" aplican IVA reducido del 8%.
+   - Productos de categoría "electronico" aplican IVA reducido del 9%.
 
 5. LÍMITE DE CANTIDAD:
    - La cantidad máxima por pedido de un solo producto es de 50 unidades.
