@@ -1,41 +1,29 @@
 """
-procesador_pedidos.py — orquestador principal de compras.
+procesador_pedidos.py — Orquestador principal de compras.
 
-Llama a módulos dispersos en logic/ y utils/ para aplicar las reglas.
-La lógica está repartida en al menos 5 archivos distintos, dificultando la auditoría.
-
-REGLAS DE NEGOCIO (implementadas en módulos distintos):
-  Regla 1  — Descuento por monto .............. logic/calculadora_impuestos.py
-  Regla 2  — Descuento VIP .................... AQUÍ (hardcoded, no en módulo)
-  Regla 3  — IVA estándar ..................... logic/calculadora_impuestos.py
-  Regla 4  — IVA reducido electrónicos ........ logic/calculadora_impuestos.py
-  Regla 5  — Límite de cantidad ............... AQUÍ (valor incorrecto: 51)
-  Regla 6  — Stock disponible ................. AQUÍ
-  Regla 7  — Validar saldo .................... logic/validador_negocio.py
-  Regla 8  — Prioridad de envío ............... utils/formatter.py
-  Regla 9  — Cupones de descuento ............. logic/validador_negocio.py
-  Regla 10 — Descuento por fidelidad .......... logic/calculadora_impuestos.py
-  Regla 11 — Impuesto internacional ........... utils/formatter.py
-  Regla 12 — Límite diario de gasto ........... logic/validador_negocio.py
-  Regla 13 — Restricción categoría mueble ..... logic/validador_negocio.py
-  Regla 14 — Log de transacción ............... AQUÍ (sólo en memoria)
+Implementa el flujo de compras de acuerdo a las 4 Reglas de Negocio Consolidadas:
+1. Validación de Pedido y Disponibilidad
+2. Cálculo de Descuentos
+3. Impuestos y Cargos
+4. Seguridad de Pago y Auditoría Persistente
 """
 
 import os
-import random
 import time
+import json
 import logging
 
 from database_mock import (
     obtener_producto_por_id,
     obtener_usuario_por_id,
     actualizar_stock,
+    HISTORIAL,
 )
-from utils.config_loader import get_api_key
 from logic.calculadora_impuestos import (
     calcular_iva_complejo,
     calcular_iva_electronico,
     calcular_descuento_fidelidad,
+    obtener_porcentaje_descuento_monto,
 )
 from logic.validador_negocio import (
     validar_transaccion_segura,
@@ -46,35 +34,23 @@ from logic.validador_negocio import (
 )
 from utils.formatter import determinar_prioridad, aplicar_tarifa_internacional
 
-# ---------------------------------------------------------------------------
-# MALAS PRÁCTICAS: constantes de negocio con nombres sin sentido
-# ---------------------------------------------------------------------------
-DESCUENTO_MAXIMO = 0.10   # ¿máximo? se acumula más allá de esto
-DESCUENTO_VIP    = 0.10   # VIP obtiene 10% adicional según la spec
-UMBRAL_SUBTOTAL  = 200
-CANTIDAD_MAXIMA  = 50     # Límite máximo por pedido según la spec
-TIEMPO_ESPERA    = 0.3    # variable definida pero nunca usada
-
-# REGLA 14 — Log global en memoria (no persiste entre reinicios)
-HISTORIAL = []
+CANTIDAD_MAXIMA = 50
 
 
 def procesar_compra(id_usuario: int, id_producto: int, cantidad: int,
                     codigo_cupon: str | None = None) -> dict:
     """
-    Orquestador de compra con dependencias dispersas en 4 módulos distintos.
-    Aplica las reglas de negocio en el orden adecuado.
+    Orquestador de compra que aplica secuencialmente las 4 Reglas de Negocio Consolidadas.
     """
-
-    # Llamada a utils -> constants (cadena innecesaria de dependencias)
-    key = get_api_key()
-
-    usuario  = obtener_usuario_por_id(id_usuario)
+    usuario = obtener_usuario_por_id(id_usuario)
     producto = obtener_producto_por_id(id_producto)
 
     if not producto or not usuario:
         return {"error": "Datos no encontrados"}
 
+    # ---------------------------------------------------------------------------
+    # REGLA 1: VALIDACIÓN DE PEDIDO Y DISPONIBILIDAD
+    # ---------------------------------------------------------------------------
     if cantidad <= 0:
         return {"error": "Cantidad inválida"}
 
@@ -87,59 +63,95 @@ def procesar_compra(id_usuario: int, id_producto: int, cantidad: int,
     if not validar_categoria_permitida(producto["categoria"], usuario["vip"]):
         return {"error": "Categoría no permitida para este tipo de usuario"}
 
+    # ---------------------------------------------------------------------------
+    # REGLA 2: CÁLCULO DE DESCUENTOS
+    # ---------------------------------------------------------------------------
     subtotal = producto["precio"] * cantidad
 
-    descuento = 0.0
-    if subtotal > UMBRAL_SUBTOTAL:
-        descuento += 0.10
-    elif subtotal > 50:
-        descuento += 0.05
+    # Descuento por monto (no acumulativo, 5% si > $50, 10% si > $200)
+    descuento_monto = obtener_porcentaje_descuento_monto(subtotal)
+    
+    # Descuento VIP (+10% adicional acumulativo)
+    descuento_vip = 0.10 if usuario.get("vip") else 0.0
+    
+    descuento_base_total = descuento_monto + descuento_vip
+    total_con_descuento = subtotal * (1 - descuento_base_total)
 
-    if usuario.get("vip"):
-        descuento += DESCUENTO_VIP
-
-    total_con_descuento = subtotal * (1 - descuento)
-
+    # Descuento por fidelidad (3% adicional si > 10 compras previas)
     desc_fidelidad = calcular_descuento_fidelidad(usuario)
     if desc_fidelidad:
         total_con_descuento *= (1 - desc_fidelidad)
 
+    # ---------------------------------------------------------------------------
+    # REGLA 3: CÁLCULO DE IMPUESTOS Y CARGOS
+    # ---------------------------------------------------------------------------
+    # IVA: 10% estándar, 9% reducido para electrónicos
     if producto["categoria"] == "electronico":
         iva = calcular_iva_electronico(total_con_descuento, es_vip=usuario["vip"])
     else:
         iva = calcular_iva_complejo(total_con_descuento, es_vip=usuario["vip"])
 
     total_con_iva = total_con_descuento + iva
-    total_con_iva, descuento_cupon = validar_y_aplicar_cupon(total_con_iva, codigo_cupon)
+
+    # Validación y aplicación del cupón (Regla 2, puede lanzar error si es inactivo/usado)
+    try:
+        total_con_iva, descuento_cupon = validar_y_aplicar_cupon(total_con_iva, codigo_cupon, id_usuario)
+    except ValueError as e:
+        return {"error": str(e)}
+
+    # Recargo internacional (2% si país es "US")
     total_final = aplicar_tarifa_internacional(total_con_iva, usuario["pais"])
 
-    es_valido, motivo = validar_transaccion_segura(usuario, total_final)
-    if not es_valido:
-        return {"error": motivo}
+    # ---------------------------------------------------------------------------
+    # REGLA 4: SEGURIDAD DE PAGO Y AUDITORÍA PERSISTENTE
+    # ---------------------------------------------------------------------------
+    # Validación de saldo disponible
+    es_valido_saldo, motivo_saldo = validar_transaccion_segura(usuario, total_final)
+    if not es_valido_saldo:
+        return {"error": motivo_saldo}
 
+    # Validación de límite de gasto diario ($3,000)
     if not verificar_limite_diario(id_usuario, total_final):
         return {"error": "Límite de gasto diario alcanzado"}
 
+    # Ejecución de transacciones y actualizaciones
     usuario["saldo"] -= total_final
     actualizar_stock(id_producto, cantidad)
     registrar_gasto_diario(id_usuario, total_final)
 
+    # Prioridad de envío (> $400 es ALTA, de lo contrario NORMAL)
     prioridad = determinar_prioridad(total_final)
 
-    HISTORIAL.append({
-        "id_usuario":  id_usuario,
+    # Registro de transacciones
+    log_entry = {
+        "id_usuario": id_usuario,
         "id_producto": id_producto,
-        "total":       total_final,
-        "prioridad":   prioridad,
-        "timestamp":   int(time.time()),
-    })
+        "cantidad": cantidad,
+        "total": total_final,
+        "prioridad": prioridad,
+        "codigo_cupon": codigo_cupon,
+        "timestamp": int(time.time()),
+    }
+    
+    # Registro en memoria
+    HISTORIAL.append(log_entry)
+
+    # Registro en archivo de log persistente
+    try:
+        log_dir = os.path.dirname(os.path.abspath(__file__))
+        log_path = os.path.join(log_dir, "system_audit.log")
+        with open(log_path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
+    except Exception as e:
+        logging.error(f"Error al escribir en el log persistente: {e}")
 
     return {
-        "status":              "success",
-        "total":               total_final,
-        "iva":                 iva,
-        "descuento_aplicado":  descuento,
+        "status": "success",
+        "total": total_final,
+        "iva": iva,
+        "descuento_applied": descuento_base_total,  # Para mantener compatibilidad con tests
+        "descuento_aplicado": descuento_base_total,
         "descuento_fidelidad": desc_fidelidad,
-        "descuento_cupon":     descuento_cupon,
-        "prioridad":           prioridad,
+        "descuento_cupon": descuento_cupon,
+        "prioridad": prioridad,
     }

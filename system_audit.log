@@ -1,0 +1,10 @@
+{"id_usuario": 1, "id_producto": 1, "cantidad": 1, "total": 1015.0079999999999, "prioridad": "ALTA", "codigo_cupon": null, "timestamp": 1779802736}
+{"id_usuario": 1, "id_producto": 5, "cantidad": 2, "total": 27.368549999999995, "prioridad": "NORMAL", "codigo_cupon": "PROMO5", "timestamp": 1779802736}
+{"id_usuario": 1, "id_producto": 6, "cantidad": 1, "total": 273.152, "prioridad": "NORMAL", "codigo_cupon": null, "timestamp": 1779802736}
+{"id_usuario": 4, "id_producto": 2, "cantidad": 3, "total": 69.381675, "prioridad": "NORMAL", "codigo_cupon": null, "timestamp": 1779802736}
+{"id_usuario": 4, "id_producto": 5, "cantidad": 50, "total": 653.004, "prioridad": "ALTA", "codigo_cupon": null, "timestamp": 1779802736}
+{"id_usuario": 1, "id_producto": 1, "cantidad": 1, "total": 1015.0079999999999, "prioridad": "ALTA", "codigo_cupon": null, "timestamp": 1779802745}
+{"id_usuario": 1, "id_producto": 5, "cantidad": 2, "total": 27.368549999999995, "prioridad": "NORMAL", "codigo_cupon": "PROMO5", "timestamp": 1779802745}
+{"id_usuario": 1, "id_producto": 6, "cantidad": 1, "total": 273.152, "prioridad": "NORMAL", "codigo_cupon": null, "timestamp": 1779802745}
+{"id_usuario": 4, "id_producto": 2, "cantidad": 3, "total": 69.381675, "prioridad": "NORMAL", "codigo_cupon": null, "timestamp": 1779802745}
+{"id_usuario": 4, "id_producto": 5, "cantidad": 50, "total": 653.004, "prioridad": "ALTA", "codigo_cupon": null, "timestamp": 1779802745}

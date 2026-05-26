@@ -1,100 +1,89 @@
 """
-validador_negocio.py — validaciones de reglas de negocio.
+validador_negocio.py — Validaciones de reglas de negocio.
 
-REGLAS DE NEGOCIO IMPLEMENTADAS AQUÍ (dispersas entre varios archivos):
-  - Regla 7: Validar saldo del usuario
-  - Regla 9: Validar y aplicar cupón de descuento
-  - Regla 12: Límite diario de gasto
-  - Regla 13: Restricción de categoría mueble
+Implementa:
+- REGLA 1: Validación de Pedido y Disponibilidad (Categorías, Stock)
+- REGLA 4: Seguridad de Pago y Auditoría (Saldo, Límite de Gasto Diario)
 """
 
-import sys
 import os
+import sys
+import datetime
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from database_mock import obtener_cupon, GASTO_DIARIO   # MAL: importa estado global mutable
+from database_mock import obtener_cupon, HISTORIAL
 
-# Estado global sin protección de concurrencia
-GASTO_DIARIO = {}          # MAL: duplicado — también existe en database_mock
-LIMITE_DIARIO_GASTO = 3000
+LIMITE_DIARIO_GASTO = 3000.00
 
 
-# -----------------------------------------------------------------------
-# REGLA 7 — Validar saldo del usuario
-# -----------------------------------------------------------------------
-def validar_transaccion_segura(usuario, total_final):
+def validar_transaccion_segura(usuario: dict, total_final: float) -> tuple[bool, str | None]:
     """
-    Verifica que el usuario tenga saldo suficiente para la transacción.
+    Verifica que el usuario tenga saldo suficiente para completar la transacción.
     """
     if usuario["saldo"] < total_final:
         return False, "Saldo insuficiente"
-
-    # Se eliminó la restricción de monto máximo no documentada.
     return True, None
 
 
-# -----------------------------------------------------------------------
-# REGLA 9 — Validar cupón de descuento
-# MAL: aplica el descuento ANTES de verificar si el cupón está activo
-# MAL: no valida si el cupón ya fue usado por el mismo usuario
-# MAL: retorna el total modificado aunque el cupón esté inactivo
-# -----------------------------------------------------------------------
-def validar_y_aplicar_cupon(total: float, codigo_cupon: str | None):
+def validar_y_aplicar_cupon(total: float, codigo_cupon: str | None, id_usuario: int) -> tuple[float, float]:
     """
     Valida el código de cupón y aplica el descuento si corresponde.
+    Rechaza cupones inactivos o ya usados por el mismo usuario.
     Retorna (nuevo_total, descuento_aplicado).
+    
+    Lanza ValueError si el cupón no es válido o está inactivo/usado.
     """
     if not codigo_cupon:
         return total, 0.0
 
     cupon = obtener_cupon(codigo_cupon)
-
     if not cupon:
-        return total, 0.0
-
-    # BUG: aplica el descuento antes de verificar si está activo
-    descuento = cupon["descuento"]
-    total_con_descuento = total * (1 - descuento)
+        raise ValueError("Cupón no encontrado")
 
     if not cupon["activo"]:
-        # El descuento ya fue calculado; aquí solo se "informa" pero no se revierte
-        pass    # BUG silencioso: debería hacer return total, 0.0
+        raise ValueError("El cupón ingresado está desactivado")
 
-    return total_con_descuento, descuento
+    # Verificar si el usuario ya usó este cupón en su historial
+    for entrada in HISTORIAL:
+        if entrada.get("id_usuario") == id_usuario and entrada.get("codigo_cupon") == codigo_cupon:
+            raise ValueError("El cupón ya ha sido utilizado por este usuario")
+
+    descuento = cupon["descuento"]
+    nuevo_total = total * (1 - descuento)
+    return nuevo_total, descuento
 
 
-# -----------------------------------------------------------------------
-# REGLA 12 — Límite diario de gasto
-# MAL: el diccionario GASTO_DIARIO es una variable local del módulo;
-#      nunca se reinicia a medianoche (acumula indefinidamente)
-# MAL: no hay timestamp — no distingue entre días diferentes
-# -----------------------------------------------------------------------
 def verificar_limite_diario(id_usuario: int, monto: float) -> bool:
     """
-    Verifica que el usuario no supere el límite diario de $3000.
+    Verifica que el usuario no supere el límite diario de $3000 en el día calendario actual.
     """
-    # MAL: lee del dict local, no del dict importado — siempre empieza en 0
-    gastado = GASTO_DIARIO.get(id_usuario, 0)
-    return (gastado + monto) <= LIMITE_DIARIO_GASTO
+    hoy = datetime.date.today()
+    gastado_hoy = 0.0
+    
+    for entrada in HISTORIAL:
+        if entrada.get("id_usuario") == id_usuario:
+            ts = entrada.get("timestamp")
+            if ts:
+                fecha_entrada = datetime.date.fromtimestamp(ts)
+                if fecha_entrada == hoy:
+                    gastado_hoy += entrada.get("total", 0.0)
+                    
+    return (gastado_hoy + monto) <= LIMITE_DIARIO_GASTO
 
 
 def registrar_gasto_diario(id_usuario: int, monto: float):
     """
-    Registra el gasto del día para el usuario.
+    Registra el gasto. Al utilizar un cálculo dinámico basado en HISTORIAL,
+    esta función queda para compatibilidad con la estructura original.
     """
-    # MAL: escribe en el dict local del módulo, no en el de database_mock
-    gastado = GASTO_DIARIO.get(id_usuario, 0)
-    GASTO_DIARIO[id_usuario] = gastado + monto
+    pass
 
 
-# -----------------------------------------------------------------------
-# REGLA 13 — Restricción de categoría mueble para no-VIP
-# MAL: la condición lógica está invertida: bloquea VIP en vez de no-VIP
-# -----------------------------------------------------------------------
 def validar_categoria_permitida(categoria: str, es_vip: bool) -> bool:
     """
-    Los usuarios no-VIP no pueden comprar productos de categoría 'mueble'.
-    Retorna True si la compra está permitida.
+    Los usuarios no-VIP no pueden comprar productos de la categoría 'mueble'.
+    Los usuarios VIP pueden comprar cualquier categoría.
     """
-    if categoria == "mueble" and es_vip:   # BUG: debería ser "not es_vip"
-        return False   # Bloquea VIP incorrectamente
+    if categoria == "mueble" and not es_vip:
+        return False
     return True

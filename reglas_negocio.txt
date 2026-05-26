@@ -1,50 +1,22 @@
-REGLAS DE NEGOCIO - SISTEMA DE COMPRA Y VENTA v2.0
+REGLAS DE NEGOCIO - SISTEMA DE COMPRA Y VENTA v3.0
 
-1. DESCUENTOS POR MONTO:
-   - Todo pedido mayor a $50.00 debe recibir un descuento automático del 5%.
-   - Todo pedido mayor a $200.00 debe recibir un descuento del 10% (reemplaza al de $50).
+1. REGLA 1: VALIDACIÓN DE PEDIDO Y DISPONIBILIDAD
+   - Límite de Cantidad: La cantidad de unidades en un pedido para un mismo producto debe ser mayor a 0 y menor o igual a 50 unidades.
+   - Disponibilidad (Stock): No se admiten pedidos de productos con stock insuficiente (0 o menor).
+   - Restricción de Categorías: Los usuarios no-VIP no pueden adquirir productos de la categoría "mueble". Los usuarios VIP tienen permitido comprar cualquier categoría de productos.
 
-2. DESCUENTO VIP:
-   - Los usuarios VIP reciben un 10% adicional acumulativo sobre el total con descuento.
+2. REGLA 2: CÁLCULO DE DESCUENTOS
+   - Descuento por Monto: Pedidos con subtotal mayor a $50.00 reciben un 5% de descuento automático; pedidos con subtotal mayor a $200.00 reciben un 10% de descuento automático (este descuento no es acumulable, el mayor reemplaza al menor).
+   - Descuento VIP: Los usuarios VIP reciben un 10% de descuento adicional sobre el subtotal, el cual es acumulativo (se suma aritméticamente al descuento por monto).
+   - Descuento por Fidelidad: Los usuarios que tengan más de 10 compras previas en su historial reciben un 3% de descuento adicional acumulativo.
+   - Cupones de Descuento: Se permite aplicar un cupón promocional activo por pedido. Los cupones inactivos o aquellos que ya hayan sido utilizados previamente por el mismo usuario deben ser rechazados.
 
-3. IMPUESTOS (IVA):
-   - El IVA es del 10% fijo sobre el subtotal después de todos los descuentos.
+3. REGLA 3: CÁLCULO DE IMPUESTOS Y CARGOS
+   - Impuesto al Valor Agregado (IVA): Se aplica un IVA del 10% sobre el subtotal después de todos los descuentos. En caso de que el producto sea de la categoría "electronico", se aplica un IVA reducido del 9%.
+   - Recargo Internacional: Si el país de residencia del usuario es "US" (comparación case-insensitive), se aplica un recargo internacional del 2% sobre el total con impuestos.
+   - Prioridad de Envío: Si el total final acumulado del pedido es estrictamente mayor a $400.00, se le asigna prioridad 'ALTA'; de lo contrario, se le asigna prioridad 'NORMAL'.
 
-4. IVA REDUCIDO:
-   - Productos de categoría "electronico" aplican IVA reducido del 9%.
-
-5. LÍMITE DE CANTIDAD:
-   - La cantidad máxima por pedido de un solo producto es de 50 unidades.
-
-6. INVENTARIO:
-   - No se pueden vender productos con stock 0 o negativo.
-
-7. SEGURIDAD Y PAGOS:
-   - Todas las transacciones deben validarse contra el saldo del usuario ANTES de procesar.
-
-8. PRIORIDAD DE ENVÍO:
-   - Pedidos cuyo total final supere $400.00 tienen prioridad 'ALTA'.
-   - El resto tiene prioridad 'NORMAL'.
-
-9. CUPONES DE DESCUENTO:
-   - Se puede aplicar un cupón por pedido.
-   - Los cupones desactivados NO deben aplicarse.
-   - Cada cupón sólo puede usarse una vez por usuario.
-
-10. DESCUENTO POR FIDELIDAD:
-    - Usuarios con más de 10 compras previas reciben un 3% adicional de descuento.
-
-11. IMPUESTO INTERNACIONAL:
-    - Usuarios con país de residencia "US" pagan un recargo adicional del 2%.
-
-12. LÍMITE DIARIO DE GASTO:
-    - Ningún usuario puede gastar más de $3,000.00 en un mismo día calendario.
-    - El contador de gasto diario debe reiniciarse a medianoche.
-
-13. RESTRICCIÓN POR CATEGORÍA:
-    - Los usuarios NO-VIP no pueden adquirir productos de la categoría "mueble".
-    - Los usuarios VIP pueden comprar cualquier categoría sin restricción.
-
-14. LOG DE TRANSACCIONES:
-    - Cada transacción exitosa debe registrarse con: usuario, producto, total, prioridad y timestamp.
-    - El log debe persistirse en almacenamiento duradero (base de datos o archivo).
+4. REGLA 4: SEGURIDAD DE PAGO Y AUDITORÍA PERSISTENTE
+   - Validación de Saldo: Toda transacción debe ser validada contra el saldo disponible del usuario antes de ser procesada; si el saldo es insuficiente, la compra es rechazada.
+   - Límite de Gasto Diario: Ningún usuario puede exceder un gasto acumulado de $3,000.00 en el mismo día calendario.
+   - Log de Transacciones Persistente: Cada compra exitosa debe registrarse de manera persistente en un archivo local de auditoría ("system_audit.log"), guardando los datos del usuario, producto, cantidad, total pagado, prioridad de envío, cupón utilizado y timestamp de la operación.
