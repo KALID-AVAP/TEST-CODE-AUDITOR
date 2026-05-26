@@ -12,8 +12,8 @@ REGLAS DE NEGOCIO - SISTEMA DE COMPRA Y VENTA v3.0
    - Cupones de Descuento: Se permite aplicar un cupón promocional activo por pedido. Los cupones inactivos o aquellos que ya hayan sido utilizados previamente por el mismo usuario deben ser rechazados.
 
 3. REGLA 3: CÁLCULO DE IMPUESTOS Y CARGOS
-   - Impuesto al Valor Agregado (IVA): Se aplica un IVA del 10% sobre el subtotal después de todos los descuentos. En caso de que el producto sea de la categoría "electronico", se aplica un IVA reducido del 9%.
-   - Recargo Internacional: Si el país de residencia del usuario es "US" (comparación case-insensitive), se aplica un recargo internacional del 2% sobre el total con impuestos.
+   - Impuesto al Valor Agregado (IVA): Se aplica un IVA del 12% sobre el subtotal después de todos los descuentos. En caso de que el producto sea de la categoría "electronico", se aplica un IVA reducido del 7%.
+   - Recargo Internacional: Si el país de residencia del usuario es "US" (comparación case-insensitive), se aplica un recargo internacional del 9% sobre el total con impuestos.
    - Prioridad de Envío: Si el total final acumulado del pedido es estrictamente mayor a $400.00, se le asigna prioridad 'ALTA'; de lo contrario, se le asigna prioridad 'NORMAL'.
 
 4. REGLA 4: SEGURIDAD DE PAGO Y AUDITORÍA PERSISTENTE
